@@ -1,0 +1,16 @@
+[package]
+name = "stockfighter"
+version = "0.1.0"
+authors = ["Aistis Raulinaitis <sheganinans@gmail.com>"]
+description = "Complete API for StockFighter"
+license = "MIT"
+repository = "http://github.com/sheganinans/stockfighter"
+
+[dependencies]
+serde = "*"
+serde_json = "*"
+serde_macros = "*"
+serializable_enum = "0.3.0"
+hyper = "0.8"
+websocket = "0.16.2"
+chrono = "*"
