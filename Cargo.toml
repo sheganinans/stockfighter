@@ -4,13 +4,13 @@ version = "0.1.0"
 authors = ["Aistis Raulinaitis <sheganinans@gmail.com>"]
 description = "Complete API for StockFighter"
 license = "MIT"
-repository = "http://github.com/sheganinans/stockfighter"
+repository = "https://github.com/sheganinans/stockfighter"
 
 [dependencies]
-serde = "*"
-serde_json = "*"
-serde_macros = "*"
+serde = "0.7.0"
+serde_json = "0.7.0"
+serde_macros = "0.7.2"
 serializable_enum = "0.3.0"
 hyper = "0.8"
 websocket = "0.16.2"
-chrono = "*"
+chrono = "0.2.21"
