@@ -206,7 +206,7 @@ macro_rules! newtype {
 #[derive(Debug)] pub enum StatusForAllOrdersInAStock { R200(Status),    R401(ErrMsg) }
 
 serializable_enum! {
-  #[derive(Debug, PartialEq, Clone)]
+  #[derive(Debug, PartialEq, Eq, Clone)]
   pub enum Direction {
     /// Buy
     Buy,
@@ -216,7 +216,7 @@ serializable_enum! {
 impl_as_ref_from_str! { Direction { Buy => "buy", Sell => "sell", } EError::Parse }
 
 serializable_enum! {
-  #[derive(Debug, PartialEq, Clone)]
+  #[derive(Debug, PartialEq, Eq, Clone)]
   pub enum OrderType {
     /// Limit
     Limit,
@@ -249,19 +249,19 @@ newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 
 
 
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct   Qty(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct Price(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
 
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct   Venue(pub String): Deref, DerefMut, From, Into, Display);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct  Symbol(pub String): Deref, DerefMut, From, Into, Display);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct Account(pub String): Deref, DerefMut, From, Into, Display);
 
-newtype!(#[derive(Debug, PartialEq, Clone)]  pub struct DTUTC(pub DateTime<UTC>): Deref, DerefMut, From, Into);
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]  pub struct DTUTC(pub DateTime<UTC>): Deref, DerefMut, From, Into);
 
 impl Serialize for DTUTC {
   fn serialize<S: Serializer>(&self, s: &mut S) -> Result<(), S::Error> { s.serialize_unit_struct("DTUTC") }}
@@ -302,7 +302,7 @@ pub struct Position {
   #[serde(rename="isBuy")]
   pub is_buy: IsBuy }
 
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
          pub struct IsBuy(pub bool): Deref, DerefMut, From, Into, Display);
 
 
@@ -326,14 +326,14 @@ pub struct Order {
   pub total_filled: TotalFilled,
   pub open:         OrderOpen }
 
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct OriginalQty(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
          pub struct OrderId(pub usize): Deref, DerefMut, From, Into, Display);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct TotalFilled(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
 
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
          pub struct OrderOpen(pub bool): Deref, DerefMut, From, Into, Display);
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)] pub struct Fill { pub price: Price, pub qty: Qty, pub ts: DTUTC }
@@ -366,21 +366,21 @@ pub struct Quote {
   pub last_trade: Option<DTUTC>,
   pub quote_time: Option<DTUTC> }
 
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct      Bid(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct      Ask(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct  BidSize(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct  AskSize(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct BidDepth(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct AskDepth(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct     Last(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct LastSize(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
 
 
@@ -414,17 +414,17 @@ pub struct FillsWS {
   #[serde(rename="incomingComplete")]
   pub incoming_complete: IncomingComplete }
 
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
          pub struct StandingId(pub usize): Deref, DerefMut, From, Into);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
          pub struct IncomingId(pub usize): Deref, DerefMut, From, Into);
 
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct Filled(pub usize): Deref, DerefMut, From, Into, Add, Sub, Mul, Div, Rem);
 
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
          pub struct StandingComplete(pub bool): Deref, DerefMut, From, Into);
-newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+newtype!(#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
          pub struct IncomingComplete(pub bool): Deref, DerefMut, From, Into);
 
 
