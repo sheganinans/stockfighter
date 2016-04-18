@@ -45,7 +45,7 @@ fn main() {
 	match message.opcode {
       Type::Text => { match serde_json::from_str::<QuoteWS>(&bytes_to_string(&*message.payload).unwrap()) {
         Ok(o) => println!("{:#?}",Ok(o)), // If Quote parses correctly, print it.
-        Err(_) => println!("{:#?}",       // If it doesn't, try parsing it at an ErrMsg.
+        Err(_) => println!("{:#?}",       // If it doesn't, try parsing it as an ErrMsg.
                            serde_json::from_str::<ErrMsg>(&bytes_to_string(&*message.payload).unwrap())) }}
         _ => () }}}
 
