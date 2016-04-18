@@ -6,7 +6,7 @@ Find it here: https://crates.io/crates/stockfighter
 
 **Use latest nightly: `multirust run nightly cargo build`**
 
-Make sure to set $STOCKFIGHTER_API_KEY.
+Make sure to set `$STOCKFIGHTER_API_KEY`.
 
 ## Intro
 
