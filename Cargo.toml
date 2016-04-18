@@ -1,6 +1,6 @@
 [package]
 name = "stockfighter"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Aistis Raulinaitis <sheganinans@gmail.com>"]
 description = "Complete API for StockFighter"
 license = "MIT"
