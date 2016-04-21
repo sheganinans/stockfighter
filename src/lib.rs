@@ -123,12 +123,12 @@ impl StockFighter {
         StatusCode::Unauthorized => Ok(StatusForAllOrdersInAStock::R401(parse_sf_json(&mut res))),
         status_code => Err(status_code) }) })}}
 
+pub struct HyperResult<T>(pub Result<Result<T,hyper::status::StatusCode>,hyper::error::Error>);
+
 impl<T> HyperResult<T> {
 
   pub fn all_ok(self) -> T {
     match self.0 { Err(e) => panic!("{:?}",e), Ok(o) => match o { Err(e) => panic!("{:?}",e), Ok(res) => res }}}}
-
-pub struct HyperResult<T>(pub Result<Result<T,hyper::status::StatusCode>,hyper::error::Error>);
 
 
 // Ripped from: https://github.com/arienmalec/newtype_macros
@@ -289,7 +289,6 @@ newtype!(#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)] pub struct ErrMsg { pub ok: bool, pub error: String }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)] pub struct VenueOk { ok: bool, venue: Venue }
-
 
 
 newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
