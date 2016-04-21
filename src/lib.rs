@@ -1,11 +1,11 @@
 #![feature(custom_derive,plugin)]
 #![plugin(serde_macros)]
 #[macro_use] extern crate hyper;
-extern crate serde;
-extern crate serde_json;
+             extern crate serde;
+             extern crate serde_json;
 #[macro_use] extern crate serializable_enum;
-extern crate websocket;
-extern crate chrono;
+             extern crate websocket;
+             extern crate chrono;
 
 use chrono::{DateTime,UTC};
 use hyper::client::{Client,response};
@@ -23,40 +23,40 @@ impl StockFighter {
   pub fn new() -> StockFighter {
     StockFighter { api_key: env!("STOCKFIGHTER_API_KEY").to_string(), client: Client::new() }}
 
-  pub fn api_heartbeat(&self) -> HyperResult<ApiHeartbeat> {
+  pub fn api_heartbeat(&self) -> HyperResult<ApiHeartbeat> { HyperResult (
     match self.client.get("https://api.stockfighter.io/ob/api/heartbeat").send() {
       Err(e) => Err(e), Ok(mut res) => Ok( match res.status {
         StatusCode::Ok => Ok(parse_sf_json(&mut res)),
-        status_code => Err(status_code) })}}
+        status_code => Err(status_code) })})}
 
-  pub fn venue_heartbeat(&self, venue: Venue) -> HyperResult<VenueHeartbeat> {
+  pub fn venue_heartbeat(&self, venue: Venue) -> HyperResult<VenueHeartbeat> { HyperResult (
     match self.client.get(&format!("https://api.stockfighter.io/ob/api/venues/{}/heartbeat",venue.0)).send() {
       Err(e) => Err(e), Ok(mut res) => Ok( match res.status {
         StatusCode::Ok                  => Ok(VenueHeartbeat::R200(parse_sf_json(&mut res))),
         StatusCode::InternalServerError => Ok(VenueHeartbeat::R500(parse_sf_json(&mut res))),
         StatusCode::NotFound            => Ok(VenueHeartbeat::R404(parse_sf_json(&mut res))),
-        status_code => Err(status_code) }) }}
+        status_code => Err(status_code) }) })}
 
-  pub fn stocks_on_venue(&self, venue: Venue) -> HyperResult<StocksOnVenue> {
+  pub fn stocks_on_venue(&self, venue: Venue) -> HyperResult<StocksOnVenue> { HyperResult (
     match self.client.get(&format!("https://api.stockfighter.io/ob/api/venues/{}/stocks",venue.0))
                      .header(XStarfighterAuthorization(self.api_key.clone())).send()
     { Err(e) => Err(e), Ok(mut res) => Ok(
       match res.status {
         StatusCode::Ok       => Ok(StocksOnVenue::R200(parse_sf_json(&mut res))),
         StatusCode::NotFound => Ok(StocksOnVenue::R404(parse_sf_json(&mut res))),
-        status_code => Err(status_code) }) }}
+        status_code => Err(status_code) }) })}
 
-  pub fn orderbook(&self, venue: Venue, stock: Symbol) -> HyperResult<OrderbookForAStock> {
+  pub fn orderbook(&self, venue: Venue, stock: Symbol) -> HyperResult<OrderbookForAStock> { HyperResult (
     match self.client.get(&format!("https://api.stockfighter.io/ob/api/venues/{}/stocks/{}", venue.0, stock.0))
                      .header(XStarfighterAuthorization(self.api_key.clone())).send()
     { Err(e) => Err(e), Ok(mut res) => Ok(
       match res.status {
         StatusCode::Ok       => Ok(OrderbookForAStock::R200(parse_sf_json(&mut res))),
         StatusCode::NotFound => Ok(OrderbookForAStock::R404(parse_sf_json(&mut res))),
-        status_code => Err(status_code) }) }}
+        status_code => Err(status_code) }) })}
 
-  pub fn new_order(&self, acc: Account, venue: Venue, stock: Symbol,
-                   price: Price, qty: Qty, dir: Direction, order_type: OrderType) -> HyperResult<NewOrderForAStock> {
+  pub fn new_order(&self, acc: Account, venue: Venue, stock: Symbol, price: Price,
+                   qty: Qty, dir: Direction, order_type: OrderType) -> HyperResult<NewOrderForAStock> { HyperResult (
     match self.client.post(&format!("https://api.stockfighter.io/ob/api/venues/{}/stocks/{}/orders",venue.0,stock.0))
                      .header(XStarfighterAuthorization(self.api_key.clone()))
                      .body(&serde_json::to_string(&NewOrder { account: acc, venue: venue, stock: stock, price: price,
@@ -71,19 +71,19 @@ impl StockFighter {
             Err(e) => panic!(e), Ok(_) => match serde_json::from_str::<Order>(&body) {
               Ok(o)  => NewOrderForAStock::R200(o),
               Err(_) => NewOrderForAStock::R200Err(serde_json::from_str(&body).unwrap()) }}})},
-        status_code => Err(status_code) }) }}
+        status_code => Err(status_code) }) })}
 
-  pub fn quote(&self, venue: Venue, stock: Symbol) -> HyperResult<QuoteForAStock> {
+  pub fn quote(&self, venue: Venue, stock: Symbol) -> HyperResult<QuoteForAStock> { HyperResult (
     match self.client.get(&format!("https://api.stockfighter.io/ob/api/venues/{}/stocks/{}/quote", venue.0, stock.0))
                      .header(XStarfighterAuthorization(self.api_key.clone())).send()
     { Err(e) => Err(e), Ok(mut res) => Ok(
       match res.status {
         StatusCode::Ok       => Ok(QuoteForAStock::R200(parse_sf_json(&mut res))),
         StatusCode::NotFound => Ok(QuoteForAStock::R404(parse_sf_json(&mut res))),
-        status_code => Err(status_code) }) }}
+        status_code => Err(status_code) }) })}
 
   pub fn status_for_existing_order(&self, id: OrderId, venue: Venue, stock: Symbol)
-                                   -> HyperResult<StatusForAnExistingOrder> {
+                                   -> HyperResult<StatusForAnExistingOrder> { HyperResult (
     match self.client.get(&format!("https://api.stockfighter.io/ob/api/venues/{}/stocks/{}/orders/{}",
                                    venue.0, stock.0, id.0))
                      .header(XStarfighterAuthorization(self.api_key.clone())).send()
@@ -91,9 +91,9 @@ impl StockFighter {
       match res.status {
         StatusCode::Ok           => Ok(StatusForAnExistingOrder::R200(parse_sf_json(&mut res))),
         StatusCode::Unauthorized => Ok(StatusForAnExistingOrder::R401(parse_sf_json(&mut res))),
-        status_code => Err(status_code) }) }}
+        status_code => Err(status_code) }) })}
 
-  pub fn cancel_order(&self, venue: Venue, stock: Symbol, order: OrderId) -> HyperResult<CancelAnOrder> {
+  pub fn cancel_order(&self, venue: Venue, stock: Symbol, order: OrderId) -> HyperResult<CancelAnOrder> { HyperResult (
     match self.client.delete(&format!("https://api.stockfighter.io/ob/api/venues/{}/stocks/{}/orders/{}",
                                       venue.0, stock.0, order.0 ))
                      .header(XStarfighterAuthorization(self.api_key.clone())).send()
@@ -101,19 +101,19 @@ impl StockFighter {
       match res.status {
         StatusCode::Ok           => Ok(CancelAnOrder::R200(parse_sf_json(&mut res))),
         StatusCode::Unauthorized => Ok(CancelAnOrder::R401(parse_sf_json(&mut res))),
-        status_code => Err(status_code) }) }}
+        status_code => Err(status_code) }) })}
 
-  pub fn status_for_all_orders(&self, venue: Venue, acc: Account) -> HyperResult<StatusForAllOrders> {
+  pub fn status_for_all_orders(&self, venue: Venue, acc: Account) -> HyperResult<StatusForAllOrders> { HyperResult (
     match self.client.get(&format!("https://api.stockfighter.io/ob/api/venues/{}/accounts/{}/orders", venue.0, acc.0))
                      .header(XStarfighterAuthorization(self.api_key.clone())).send()
     { Err(e) => Err(e), Ok(mut res) => Ok(
       match res.status {
         StatusCode::Ok           => Ok(StatusForAllOrders::R200(parse_sf_json(&mut res))),
         StatusCode::Unauthorized => Ok(StatusForAllOrders::R401(parse_sf_json(&mut res))),
-        status_code => Err(status_code) }) }}
+        status_code => Err(status_code) }) })}
 
   pub fn status_for_all_orders_in_a_stock(&self, venue: Venue, acc: Account, stock: Symbol)
-                                          -> HyperResult<StatusForAllOrdersInAStock> {
+                                          -> HyperResult<StatusForAllOrdersInAStock> { HyperResult (
     match self.client.get(&format!("https://api.stockfighter.io/ob/api/venues/{}/accounts/{}/stocks/{}/orders",
                                    venue.0, acc.0, stock.0))
                      .header(XStarfighterAuthorization(self.api_key.clone())).send()
@@ -121,9 +121,14 @@ impl StockFighter {
       match res.status {
         StatusCode::Ok           => Ok(StatusForAllOrdersInAStock::R200(parse_sf_json(&mut res))),
         StatusCode::Unauthorized => Ok(StatusForAllOrdersInAStock::R401(parse_sf_json(&mut res))),
-        status_code => Err(status_code) }) }}}
+        status_code => Err(status_code) }) })}}
 
-pub type HyperResult<T> = Result<Result<T,hyper::status::StatusCode>,hyper::error::Error>;
+impl<T> HyperResult<T> {
+
+  pub fn all_ok(self) -> T {
+    match self.0 { Err(e) => panic!("{:?}",e), Ok(o) => match o { Err(e) => panic!("{:?}",e), Ok(res) => res }}}}
+
+pub struct HyperResult<T>(pub Result<Result<T,hyper::status::StatusCode>,hyper::error::Error>);
 
 
 // Ripped from: https://github.com/arienmalec/newtype_macros
@@ -204,6 +209,44 @@ macro_rules! newtype {
 #[derive(Debug)] pub enum CancelAnOrder              { R200(Order),     R401(ErrMsg) }
 #[derive(Debug)] pub enum StatusForAllOrders         { R200(Status),    R401(ErrMsg) }
 #[derive(Debug)] pub enum StatusForAllOrdersInAStock { R200(Status),    R401(ErrMsg) }
+
+impl VenueHeartbeat {
+  pub fn from_200(self) -> VenueOk { match self {            VenueHeartbeat::R200(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_500(self) -> ErrMsg  { match self {            VenueHeartbeat::R500(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_404(self) -> ErrMsg  { match self {            VenueHeartbeat::R404(s) => s, p => panic!("{:#?}", p)}}}
+
+impl StocksOnVenue {
+  pub fn from_200(self) -> Stocks { match self {              StocksOnVenue::R200(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_404(self) -> ErrMsg { match self {              StocksOnVenue::R404(s) => s, p => panic!("{:#?}", p)}}}
+
+impl OrderbookForAStock {
+  pub fn from_200(self) -> Orderbook { match self {      OrderbookForAStock::R200(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_404(self) -> ErrMsg    { match self {      OrderbookForAStock::R404(s) => s, p => panic!("{:#?}", p)}}}
+
+impl NewOrderForAStock {
+  pub fn from_200(self)    -> Order  { match self {    NewOrderForAStock::R200   (s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_404(self)    -> ErrMsg { match self {    NewOrderForAStock::R404   (s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_200_err(self)-> ErrMsg { match self {    NewOrderForAStock::R200Err(s) => s, p => panic!("{:#?}", p)}}}
+
+impl QuoteForAStock {
+  pub fn from_200(self) -> Quote  { match self {             QuoteForAStock::R200(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_404(self) -> ErrMsg { match self {             QuoteForAStock::R404(s) => s, p => panic!("{:#?}", p)}}}
+
+impl StatusForAnExistingOrder {
+  pub fn from_200(self) -> Order  { match self {   StatusForAnExistingOrder::R200(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_401(self) -> ErrMsg { match self {   StatusForAnExistingOrder::R401(s) => s, p => panic!("{:#?}", p)}}}
+
+impl CancelAnOrder {
+  pub fn from_200(self) -> Order  { match self {              CancelAnOrder::R200(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_401(self) -> ErrMsg { match self {              CancelAnOrder::R401(s) => s, p => panic!("{:#?}", p)}}}
+
+impl StatusForAllOrders {
+  pub fn from_200(self) -> Status { match self {         StatusForAllOrders::R200(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_401(self) -> ErrMsg { match self {         StatusForAllOrders::R401(s) => s, p => panic!("{:#?}", p)}}}
+
+impl StatusForAllOrdersInAStock {
+  pub fn from_200(self) -> Status { match self { StatusForAllOrdersInAStock::R200(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_401(self) -> ErrMsg { match self { StatusForAllOrdersInAStock::R401(s) => s, p => panic!("{:#?}", p)}}}
 
 serializable_enum! {
   #[derive(Debug, PartialEq, Eq, Clone)]
