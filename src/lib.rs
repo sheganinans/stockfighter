@@ -445,15 +445,15 @@ pub fn quote_to_quote_m(q: Quote) -> QuoteM {
     symbol:      q.symbol,
     venue:       q.venue,
     these_quotes: match q.bid {
-      None    => { match q.ask { None => TheseQuotes::     Empty,
-                                 Some(a) => TheseQuotes::ThatAsk(
-                                   AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}},
-      Some(b) => { match q.ask { None => TheseQuotes::ThisBid(
-        BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth }),
-                                 Some(a) => TheseQuotes::TheseQuotes(
-                                   BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth },
-                                   AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}}},
-    last:        q.last,
+      None => { match q.ask {
+        None => TheseQuotes::Empty,
+        Some(a) => TheseQuotes::ThatAsk(AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}},
+      Some(b) => { match q.ask {
+        None => TheseQuotes::ThisBid(BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth }),
+        Some(a) => TheseQuotes::TheseQuotes(
+          BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth },
+          AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}}},
+    last:       q.last,
     last_size:  q.last_size,
     last_trade: q.last_trade,
     quote_time: q.quote_time }}
