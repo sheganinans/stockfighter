@@ -79,9 +79,7 @@ impl StockFighter {
                      .header(XStarfighterAuthorization(self.api_key.clone())).send()
     { Err(e) => Err(e), Ok(mut res) => Ok(
       match res.status {
-        StatusCode::Ok       => Ok(QuoteForAStock::R200(str_to_quote(&{
-          let mut body = String::new();
-          match res.read_to_string(&mut body) { Err(e) => panic!(e), Ok(_) => body }}))),
+        StatusCode::Ok       => Ok(QuoteForAStock::R200(parse_sf_json(&mut res))),
         StatusCode::NotFound => Ok(QuoteForAStock::R404(parse_sf_json(&mut res))),
         status_code => Err(status_code) }) })}
 
@@ -206,7 +204,7 @@ impl<T> HyperResult<T> {
 #[derive(Debug)] pub enum StocksOnVenue              { R200(Stocks),    R404(ErrMsg) }
 #[derive(Debug)] pub enum OrderbookForAStock         { R200(Orderbook), R404(ErrMsg) }
 #[derive(Debug)] pub enum NewOrderForAStock          { R200(Order),     R404(ErrMsg), R200Err(ErrMsg) }
-#[derive(Debug)] pub enum QuoteForAStock             { R200(QuoteM),     R404(ErrMsg) }
+#[derive(Debug)] pub enum QuoteForAStock             { R200(QuoteWS),   R404(ErrMsg) }
 
 #[derive(Debug)] pub enum StatusForAnExistingOrder   { R200(Order),     R401(ErrMsg) }
 #[derive(Debug)] pub enum CancelAnOrder              { R200(Order),     R401(ErrMsg) }
@@ -232,7 +230,7 @@ impl NewOrderForAStock {
   pub fn from_200_err(self)-> ErrMsg { match self {    NewOrderForAStock::R200Err(s) => s, p => panic!("{:#?}", p)}}}
 
 impl QuoteForAStock {
-  pub fn from_200(self) -> QuoteM { match self {             QuoteForAStock::R200(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_200(self) -> QuoteWS { match self {             QuoteForAStock::R200(s) => s, p => panic!("{:#?}", p)}}
   pub fn from_404(self) -> ErrMsg { match self {             QuoteForAStock::R404(s) => s, p => panic!("{:#?}", p)}}}
 
 impl StatusForAnExistingOrder {
@@ -395,11 +393,55 @@ pub struct NewOrder {
   #[serde(rename="orderType")]
   pub order_type: OrderType }
 
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct Quote {
+  pub ok:         Option<bool>,
+  pub symbol:     Symbol,
+  pub venue:      Venue,
+  pub bid:        Option<Bid>,
+  pub ask:        Option<Ask>,
+  #[serde(rename="bidSize")]
+  pub bid_size:   Option<BidSize>,
+  #[serde(rename="askSize")]
+  pub ask_size:   Option<AskSize>,
+  #[serde(rename="bidDepth")]
+  pub bid_depth:  Option<BidDepth>,
+  #[serde(rename="askDepth")]
+  pub ask_depth:  Option<AskDepth>,
+  #[serde(rename="lastSize")]
+  pub last_size:  Option<LastSize>,
+  #[serde(rename="lastTrade")]
+  pub last_trade: DTUTC,
+  #[serde(rename="quoteTime")]
+  pub quote_time: DTUTC }
+
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
+         pub struct      Bid(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
+         pub struct      Ask(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
+         pub struct  BidSize(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
+         pub struct  AskSize(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
+         pub struct BidDepth(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
+         pub struct AskDepth(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
+         pub struct     Last(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
+         pub struct LastSize(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Status {
   pub ok:     bool,
   pub venue:  Venue,
   pub orders: Vec<Order> }
+
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct QuoteWS { pub ok: bool, pub quote: Quote }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct QuoteM {
@@ -418,50 +460,6 @@ pub enum TheseQuotes { ThisBid(BidStruct), ThatAsk(AskStruct), TheseQuotes(BidSt
 pub struct BidStruct { bid: Bid, bid_size: BidSize, bid_depth: BidDepth }
 #[derive(Debug, PartialEq, Clone)]
 pub struct AskStruct { ask: Ask, ask_size: AskSize, ask_depth: AskDepth }
-
-newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
-         pub struct      Bid(pub u64): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
-         pub struct      Ask(pub u64): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
-         pub struct  BidSize(pub u64): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
-         pub struct  AskSize(pub u64): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
-         pub struct BidDepth(pub u64): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
-         pub struct AskDepth(pub u64): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
-         pub struct     Last(pub u64): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
-         pub struct LastSize(pub u64): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
-
-pub fn str_to_quote(s: &str) -> QuoteM {
-  let o = serde_json::from_str::<Value>(&s).unwrap();
-  let oo = o.as_object().unwrap();
-  let q = oo.get("quote").unwrap().as_object().unwrap();
-  let quote = match q.get("bid") {
-    None => { match q.get("ask") { None => TheseQuotes::Empty, Some(ask) => TheseQuotes::ThatAsk(parse_ask(ask,&q)) }}
-              Some(bid) => { match q.get("ask") { None => { TheseQuotes::ThisBid(parse_bid(bid,&q)) },
-                                                  Some(ask) =>
-                                                  { TheseQuotes::TheseQuotes(parse_bid(bid,&q), parse_ask(ask,&q)) }}}};
-  QuoteM {  symbol:       Symbol  (q.get(   "symbol").unwrap().as_string().unwrap().to_string()),
-            venue:        Venue   (q.get(    "venue").unwrap().as_string().unwrap().to_string()),
-            these_quotes:          quote,
-            last:         Last    (q.get(     "last").unwrap().as_u64().unwrap()),
-            last_size:    LastSize(q.get( "lastSize").unwrap().as_u64().unwrap()),
-            last_trade:            q.get("lastTrade").unwrap().as_string().unwrap().parse::<DateTime<UTC>>().unwrap(),
-            quote_time:            q.get("quoteTime").unwrap().as_string().unwrap().parse::<DateTime<UTC>>().unwrap() }}
-
-pub fn parse_bid(bid: &Value, q: &BTreeMap<String, Value>) -> BidStruct {
-  BidStruct { bid:       Bid(bid.as_u64().unwrap()),
-              bid_size:  BidSize (q.get( "bidSize").unwrap().as_u64().unwrap()),
-              bid_depth: BidDepth(q.get("bidDepth").unwrap().as_u64().unwrap()) }}
-
-pub fn parse_ask(ask: &Value, q: &BTreeMap<String, Value>) -> AskStruct {
-  AskStruct { ask:       Ask(ask.as_u64().unwrap()),
-              ask_size:  AskSize (q.get( "askSize").unwrap().as_u64().unwrap()),
-              ask_depth: AskDepth(q.get("askDepth").unwrap().as_u64().unwrap()) }}
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct FillsWS {
