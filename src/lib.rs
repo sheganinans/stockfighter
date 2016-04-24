@@ -79,7 +79,7 @@ impl StockFighter {
                      .header(XStarfighterAuthorization(self.api_key.clone())).send()
     { Err(e) => Err(e), Ok(mut res) => Ok(
       match res.status {
-        StatusCode::Ok       => Ok(QuoteForAStock::R200(parse_sf_json(&mut res))),
+        StatusCode::Ok       => Ok(QuoteForAStock::R200(quote_to_quote_m(parse_sf_json(&mut res)))),
         StatusCode::NotFound => Ok(QuoteForAStock::R404(parse_sf_json(&mut res))),
         status_code => Err(status_code) }) })}
 
@@ -204,7 +204,7 @@ impl<T> HyperResult<T> {
 #[derive(Debug)] pub enum StocksOnVenue              { R200(Stocks),    R404(ErrMsg) }
 #[derive(Debug)] pub enum OrderbookForAStock         { R200(Orderbook), R404(ErrMsg) }
 #[derive(Debug)] pub enum NewOrderForAStock          { R200(Order),     R404(ErrMsg), R200Err(ErrMsg) }
-#[derive(Debug)] pub enum QuoteForAStock             { R200(QuoteWS),   R404(ErrMsg) }
+#[derive(Debug)] pub enum QuoteForAStock             { R200(QuoteM),    R404(ErrMsg) }
 
 #[derive(Debug)] pub enum StatusForAnExistingOrder   { R200(Order),     R401(ErrMsg) }
 #[derive(Debug)] pub enum CancelAnOrder              { R200(Order),     R401(ErrMsg) }
@@ -230,7 +230,7 @@ impl NewOrderForAStock {
   pub fn from_200_err(self)-> ErrMsg { match self {    NewOrderForAStock::R200Err(s) => s, p => panic!("{:#?}", p)}}}
 
 impl QuoteForAStock {
-  pub fn from_200(self) -> QuoteWS { match self {             QuoteForAStock::R200(s) => s, p => panic!("{:#?}", p)}}
+  pub fn from_200(self) -> QuoteM { match self {             QuoteForAStock::R200(s) => s, p => panic!("{:#?}", p)}}
   pub fn from_404(self) -> ErrMsg { match self {             QuoteForAStock::R404(s) => s, p => panic!("{:#?}", p)}}}
 
 impl StatusForAnExistingOrder {
@@ -402,15 +402,16 @@ pub struct Quote {
   pub bid:        Option<Bid>,
   pub ask:        Option<Ask>,
   #[serde(rename="bidSize")]
-  pub bid_size:   Option<BidSize>,
+  pub bid_size:   BidSize,
   #[serde(rename="askSize")]
-  pub ask_size:   Option<AskSize>,
+  pub ask_size:   AskSize,
   #[serde(rename="bidDepth")]
-  pub bid_depth:  Option<BidDepth>,
+  pub bid_depth:  BidDepth,
   #[serde(rename="askDepth")]
-  pub ask_depth:  Option<AskDepth>,
+  pub ask_depth:  AskDepth,
+  pub last:       Last,
   #[serde(rename="lastSize")]
-  pub last_size:  Option<LastSize>,
+  pub last_size:  LastSize,
   #[serde(rename="lastTrade")]
   pub last_trade: DTUTC,
   #[serde(rename="quoteTime")]
@@ -439,6 +440,25 @@ pub struct Status {
   pub venue:  Venue,
   pub orders: Vec<Order> }
 
+pub fn quote_to_quote_m(q: Quote) -> QuoteM {
+  QuoteM {
+    symbol:      q.symbol,
+    venue:       q.venue,
+    these_quotes: match q.bid {
+      None    => { match q.ask { None => TheseQuotes::     Empty,
+                                 Some(a) => TheseQuotes::ThatAsk(
+                                   AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}},
+      Some(b) => { match q.ask { None => TheseQuotes::ThisBid(
+        BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth }),
+                                 Some(a) => TheseQuotes::TheseQuotes(
+                                   BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth },
+                                   AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}}},
+    last:        q.last,
+    last_size:  q.last_size,
+    last_trade: q.last_trade,
+    quote_time: q.quote_time }}
+
+pub fn quote_ws_to_quote_m(q: QuoteWS) -> QuoteM { quote_to_quote_m(q.quote) }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct QuoteWS { pub ok: bool, pub quote: Quote }
@@ -450,8 +470,8 @@ pub struct QuoteM {
   pub these_quotes: TheseQuotes,
   pub last:         Last,
   pub last_size:    LastSize,
-  pub last_trade:   DateTime<UTC>,
-  pub quote_time:   DateTime<UTC> }
+  pub last_trade:   DTUTC,
+  pub quote_time:   DTUTC }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TheseQuotes { ThisBid(BidStruct), ThatAsk(AskStruct), TheseQuotes(BidStruct,AskStruct), Empty }
