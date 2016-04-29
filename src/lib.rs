@@ -4,7 +4,6 @@
              extern crate serde;
              extern crate serde_json;
 #[macro_use] extern crate serializable_enum;
-             extern crate websocket;
              extern crate chrono;
 
 use chrono::{DateTime,UTC};
@@ -14,8 +13,6 @@ use std::io::Read;
 use serde::de::{Deserialize,Deserializer,Visitor,MapVisitor,EnumVisitor,Error};
 use serde::ser::{Serialize,Serializer};
 use std::ops::{Add,Div,Mul,Rem,Sub};
-use serde_json::Value;
-use std::collections::{BTreeMap};
 
 header! { (XStarfighterAuthorization, "X-Starfighter-Authorization") => [String] }
 
@@ -417,6 +414,44 @@ pub struct Quote {
   #[serde(rename="quoteTime")]
   pub quote_time: DTUTC }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct QuoteM {
+  pub symbol:       Symbol,
+  pub venue:        Venue,
+  pub these_quotes: TheseQuotes,
+  pub last:         Last,
+  pub last_size:    LastSize,
+  pub last_trade:   DTUTC,
+  pub quote_time:   DTUTC }
+
+fn quote_to_quote_m(q: Quote) -> QuoteM {
+  QuoteM {
+    symbol:      q.symbol,
+    venue:       q.venue,
+    these_quotes: match q.bid {
+      None => { match q.ask {
+        None => TheseQuotes::Empty,
+        Some(a) => TheseQuotes::ThatAsk(AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}},
+      Some(b) => { match q.ask {
+        None => TheseQuotes::ThisBid(BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth }),
+        Some(a) => TheseQuotes::TheseQuotes(
+          BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth },
+          AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}}},
+    last:       q.last,
+    last_size:  q.last_size,
+    last_trade: q.last_trade,
+    quote_time: q.quote_time }}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum TheseQuotes { ThisBid(BidStruct), ThatAsk(AskStruct), TheseQuotes(BidStruct,AskStruct), Empty }
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct BidStruct { bid: Bid, bid_size: BidSize, bid_depth: BidDepth }
+#[derive(Debug, PartialEq, Clone)]
+pub struct AskStruct { ask: Ask, ask_size: AskSize, ask_depth: AskDepth }
+
+pub fn quote_ws_to_quote_m(q: QuoteWS) -> QuoteM { quote_to_quote_m(q.quote) }
+
 newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct      Bid(pub usize): Deref, DerefMut, From, Into, Display, Add, Sub, Mul, Div, Rem);
 newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
@@ -440,46 +475,8 @@ pub struct Status {
   pub venue:  Venue,
   pub orders: Vec<Order> }
 
-pub fn quote_to_quote_m(q: Quote) -> QuoteM {
-  QuoteM {
-    symbol:      q.symbol,
-    venue:       q.venue,
-    these_quotes: match q.bid {
-      None => { match q.ask {
-        None => TheseQuotes::Empty,
-        Some(a) => TheseQuotes::ThatAsk(AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}},
-      Some(b) => { match q.ask {
-        None => TheseQuotes::ThisBid(BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth }),
-        Some(a) => TheseQuotes::TheseQuotes(
-          BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth },
-          AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}}},
-    last:       q.last,
-    last_size:  q.last_size,
-    last_trade: q.last_trade,
-    quote_time: q.quote_time }}
-
-pub fn quote_ws_to_quote_m(q: QuoteWS) -> QuoteM { quote_to_quote_m(q.quote) }
-
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct QuoteWS { pub ok: bool, pub quote: Quote }
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct QuoteM {
-  pub symbol:       Symbol,
-  pub venue:        Venue,
-  pub these_quotes: TheseQuotes,
-  pub last:         Last,
-  pub last_size:    LastSize,
-  pub last_trade:   DTUTC,
-  pub quote_time:   DTUTC }
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum TheseQuotes { ThisBid(BidStruct), ThatAsk(AskStruct), TheseQuotes(BidStruct,AskStruct), Empty }
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct BidStruct { bid: Bid, bid_size: BidSize, bid_depth: BidDepth }
-#[derive(Debug, PartialEq, Clone)]
-pub struct AskStruct { ask: Ask, ask_size: AskSize, ask_depth: AskDepth }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct FillsWS {
@@ -514,58 +511,9 @@ newtype!(#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 newtype!(#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
          pub struct IncomingComplete(pub bool): Deref, DerefMut, From, Into);
 
-
 fn parse_sf_json<A: serde::Deserialize>(ref mut res: &mut response::Response) -> A {
   let mut body = String::new();
   match res.read_to_string(&mut body) { Err(e) => panic!(e), Ok(_) => serde_json::from_str(&body).unwrap() }}
-
-#[macro_export] macro_rules! quotes_ws {
-  ($acc:expr, $venue:expr) => {
- 	  { let request = ::websocket::Client::connect(
-      ::websocket::client::request::Url::parse(
-        &format!("wss://api.stockfighter.io/ob/api/ws/{}/venues/{}/tickertape",
-                 ::stockfighter::Account::from($acc), ::stockfighter::Venue::from($venue)))
-        .unwrap()).unwrap();
-      let response = request.send().unwrap();
-      response.validate().unwrap();
-      response.begin().split().1 }}}
-
-#[macro_export] macro_rules! quotes_stock_ws {
-  ($acc:expr, $venue:expr, $stock:expr) => {
- 	  { let request = ::websocket::Client::connect(
-      ::websocket::client::request::Url::parse(
-        &format!("wss://api.stockfighter.io/ob/api/ws/{}/venues/{}/tickertape/stocks/{}",
-                 ::stockfighter::Account::from($acc),
-                 ::stockfighter::Venue::from($venue),
-                 ::stockfighter::Symbol::from($stock)))
-        .unwrap()).unwrap();
-      let response = request.send().unwrap();
-      response.validate().unwrap();
-      response.begin().split().1 }}}
-
-#[macro_export] macro_rules! fills_ws {
-  ($acc:expr, $venue:expr) => {
- 	  { let request = ::websocket::Client::connect(
-      ::websocket::client::request::Url::parse(
-        &format!("wss://api.stockfighter.io/ob/api/ws/{}/venues/{}/executions",
-                 ::stockfighter::Account::from($acc), ::stockfighter::Venue::from($venue)))
-        .unwrap()).unwrap();
-      let response = request.send().unwrap();
-      response.validate().unwrap();
-      response.begin().split().1 }}}
-
-#[macro_export] macro_rules! fills_stock_ws {
-  ($acc:expr, $venue:expr, $stock:expr) => {
- 	  { let request = ::websocket::Client::connect(
-      ::websocket::client::request::Url::parse(
-        &format!("wss://api.stockfighter.io/ob/api/ws/{}/venues/{}/executions/stocks/{}",
-                 ::stockfighter::Account::from($acc),
-                 ::stockfighter::Venue::from($venue),
-                 ::stockfighter::Symbol::from($stock)))
-        .unwrap()).unwrap();
-      let response = request.send().unwrap();
-      response.validate().unwrap();
-      response.begin().split().1 }}}
 
 #[cfg(test)]
 mod tests {

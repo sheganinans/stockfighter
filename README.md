@@ -23,39 +23,80 @@ fn main() {
 }
 ```
 
-Also a wrapper for the WebSockets endpoints!:
+Using the ws and carboxyl library with SF!:
 
 ```rust
 #[macro_use] extern crate stockfighter;
-extern crate serde_json;
-extern crate websocket;
+             extern crate serde_json;
+             extern crate ws;
+             extern crate carboxyl;
+
+use std::io::prelude::*;
+use std::fs::{File,OpenOptions};
+use std::thread;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Sender as MPSCSender;
+use ws::{connect,CloseCode,Handler,Message,Handshake,Result,Error,ErrorKind};
+use carboxyl::{Sink,Stream};
 
 use stockfighter::*;
-use websocket::{Message, Receiver};
-use websocket::message::Type;
-use websocket::ws::util::bytes_to_string;
+
+enum SFTTEvent { Connect(Stream<QuoteM>), Disconnect }
+
+struct SFTT { tt_sender: MPSCSender<SFTTEvent>, tt_sink: Sink<QuoteM>, f: File }
+
+impl Handler for SFTT {
+  fn on_open(&mut self, _: Handshake) -> Result<()> {
+    println!("{}","SFTT connected!");
+    self.tt_sender.send(SFTTEvent::Connect(self.tt_sink.stream())).map_err(|err| Error::new(
+      ErrorKind::Internal, format!("Unable to communicate between threads: {:?}.", err))) }
+
+  fn on_message(&mut self, msg: Message) -> Result<()> {
+    if let Err(e) = self.f.write(&msg.clone().into_data()) { println!("{}", e); }
+    match serde_json::from_str::<QuoteWS>(&msg.into_text().unwrap()) {
+      Ok(o) => { Ok(self.tt_sink.send_async(quote_ws_to_quote_m(o))) },
+      Err(e) => { Err(Error::new(ErrorKind::Internal, format!("SFTT on_message: {:?}.", e))) }}}
+
+  fn on_close(&mut self, code: CloseCode, reason: &str) { }
+
+  fn on_error(&mut self, err: Error) {  }}
 
 fn main() {
   let sf = StockFighter::new();
-  let account = ""; 
-  let venue   = "";
-   // Open quotes Web Socket
-  let mut one = quotes_ws!(Account(account.to_string()), Venue(venue.to_string()));
-  for message in one.incoming_messages() {
-    let message: Message = match message 
-      { Ok(message) => message, Err(e) => { println!("Error: {:?}", e); break; }};
-	match message.opcode {
-      Type::Text => { match serde_json::from_str::<QuoteWS>(&bytes_to_string(&*message.payload).unwrap()) {
-        Ok(o) => println!("{:#?}",Ok(o)), // If Quote parses correctly, print it.
-        Err(_) => println!("{:#?}",       // If it doesn't, try parsing it as an ErrMsg.
-                           serde_json::from_str::<ErrMsg>(&bytes_to_string(&*message.payload).unwrap())) }}
-        _ => () }}}
+  let acc   = "";
+  let venue = "";
+  let stock = "";
 
+  let tt_url = format!("wss://api.stockfighter.io/ob/api/ws/{}/venues/{}/tickertape/stocks/{}",acc,venue,stock);
+
+  let (tt_tx, tt_rx) = channel();
+
+  let _ = thread::Builder::new().name("sf_tt".to_owned()).spawn(move || {
+    connect(tt_url, |_| { SFTT { tt_sender: tt_tx.clone(),
+                                 tt_sink: Sink::new(),
+                                 f: OpenOptions::new().write(true).append(true).open("data/orders.txt").unwrap()
+    }}).unwrap(); });
+
+  let tt_stream = match tt_rx.recv() { Ok(SFTTEvent::Connect(stream)) => stream, _ => panic!("tt_sink") };
+
+  let _ = thread::Builder::new().name("trade".to_owned()).spawn(move || {
+    for event in tt_stream.events() {
+      if let Ok(SFTTEvent::Disconnect) = tt_rx.try_recv() { break }
+      /* trade! */ }}).unwrap(); }
 ```
 ## Functions, types, and macros
 
 ```rust
-// Funcs
+// Internal Structs and Funcs
+
+pub struct HyperResult<T>(pub Result<Result<T,hyper::status::StatusCode>,hyper::error::Error>);
+
+impl<T> HyperResult<T> {
+
+  pub fn all_ok(self) -> T {..}}
+
+
+pub struct StockFighter { api_key: String, client: Client }
 
 impl StockFighter {
 
@@ -87,10 +128,9 @@ impl StockFighter {
   pub fn status_for_all_orders_in_a_stock(&self, venue: Venue, acc: Account, stock: Symbol)
                                           -> HyperResult<StatusForAllOrdersInAStock> {..} }
 
+pub fn quote_to_quote_m(q: Quote) -> QuoteM {..}
 
-// Types
-
-pub type HyperResult<T> = Result<Result<T,hyper::status::StatusCode>,hyper::error::Error>;
+pub fn quote_ws_to_quote_m(q: QuoteWS) -> QuoteM {..}
 
 
 // Enums
@@ -100,7 +140,7 @@ pub enum VenueHeartbeat { R200(VenueOk), R500(ErrMsg), R404(ErrMsg) }
 pub enum StocksOnVenue              { R200(Stocks),    R404(ErrMsg) }
 pub enum OrderbookForAStock         { R200(Orderbook), R404(ErrMsg) }
 pub enum NewOrderForAStock          { R200(Order),     R404(ErrMsg), R200Err(ErrMsg) }
-pub enum QuoteForAStock             { R200(Quote),     R404(ErrMsg) }
+pub enum QuoteForAStock             { R200(QuoteM),     R404(ErrMsg) }
 
 pub enum StatusForAnExistingOrder   { R200(Order),     R401(ErrMsg) }
 pub enum CancelAnOrder              { R200(Order),     R401(ErrMsg) }
@@ -112,9 +152,7 @@ pub enum Direction { Buy, Sell }
 pub enum OrderType { Limit, Market, FillOrKill, ImmediateOrCancel }
 
 
-// Structs
-
-pub struct StockFighter { api_key: String, client: Client }
+// API Structs
 
 pub struct ApiHeartbeat(pub ErrMsg);
 
@@ -205,6 +243,22 @@ pub struct Quote {
   pub last_size:  Option<LastSize>,
   pub last_trade: Option<DTUTC>,
   pub quote_time: Option<DTUTC> }
+
+pub struct QuoteM {
+  pub symbol:       Symbol,
+  pub venue:        Venue,
+  pub these_quotes: TheseQuotes,
+  pub last:         Last,
+  pub last_size:    LastSize,
+  pub last_trade:   DTUTC,
+  pub quote_time:   DTUTC }
+
+pub enum TheseQuotes { ThisBid(BidStruct), ThatAsk(AskStruct), TheseQuotes(BidStruct,AskStruct), Empty }
+
+pub struct BidStruct { bid: Bid, bid_size: BidSize, bid_depth: BidDepth }
+
+pub struct AskStruct { ask: Ask, ask_size: AskSize, ask_depth: AskDepth }
+
 
 pub struct      Bid(pub usize);
 pub struct      Ask(pub usize);
@@ -303,7 +357,7 @@ If the request goes fine, but the API returns a status that is not anticipated, 
 `Ok(Err(hyper::status::StatusCode))`
 
 Most of the time both of these will go just fine and it will return `Ok(Ok(RX0X(T)))`, where `RX0X` is some status code, usually
-`R200` for success, or `R401`, `R404`, or `R500` for some error case.
+`R200` for success, or `R401`, `R404`, or `R500` for some error case. If your program expects a certain respect to work every time, you can simply unwrap both `Ok`s with `.all_ok()`.
 
 ## Response Type 2
 
@@ -369,3 +423,30 @@ Ok(
     )
 )
 ```
+
+## Response Type 3
+
+The raw quote struct (either `Quote` or `QuoteWS`) is further parsed into a `QuoteM`. This struct uses a `These` like structure.
+
+If you are not familiar with `These`, the original Haskell library and in particular the definition is here: https://hackage.haskell.org/package/these-0.6.2.1/docs/Data-These.html
+
+For simplicity's sake I have copied the definition of `QuoteM` below:
+
+```rust
+pub struct QuoteM {
+  pub symbol:       Symbol,
+  pub venue:        Venue,
+  pub these_quotes: TheseQuotes,
+  pub last:         Last,
+  pub last_size:    LastSize,
+  pub last_trade:   DTUTC,
+  pub quote_time:   DTUTC }
+
+pub enum TheseQuotes { ThisBid(BidStruct), ThatAsk(AskStruct), TheseQuotes(BidStruct,AskStruct), Empty }
+
+pub struct BidStruct { bid: Bid, bid_size: BidSize, bid_depth: BidDepth }
+
+pub struct AskStruct { ask: Ask, ask_size: AskSize, ask_depth: AskDepth }
+```
+
+You may have noticed that `TheseQuotes` is not exactly like `These`, indeed, there is an `Empty` case to account for when the `Orderbook` is empty. In other words, `TheseQuotes` models the four possible states the `Orderbook` can be in, `Empty`, with some `Bids`, with some `Asks`, or with both `Bids` and `Asks`.

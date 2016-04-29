@@ -1,32 +1,57 @@
 #[macro_use] extern crate stockfighter;
-extern crate serde_json;
-extern crate websocket;
+             extern crate serde_json;
+             extern crate ws;
+             extern crate carboxyl;
+
+use std::io::prelude::*;
+use std::fs::{File,OpenOptions};
+use std::thread;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Sender as MPSCSender;
+use ws::{connect,CloseCode,Handler,Message,Handshake,Result,Error,ErrorKind};
+use carboxyl::{Sink,Stream};
 
 use stockfighter::*;
-use websocket::{Message, Receiver};
-use websocket::message::Type;
-use websocket::ws::util::bytes_to_string;
+
+enum SFTTEvent { Connect(Stream<QuoteM>), Disconnect }
+
+struct SFTT { tt_sender: MPSCSender<SFTTEvent>, tt_sink: Sink<QuoteM>, f: File }
+
+impl Handler for SFTT {
+  fn on_open(&mut self, _: Handshake) -> Result<()> {
+    println!("{}","SFTT connected!");
+    self.tt_sender.send(SFTTEvent::Connect(self.tt_sink.stream())).map_err(|err| Error::new(
+      ErrorKind::Internal, format!("Unable to communicate between threads: {:?}.", err))) }
+
+  fn on_message(&mut self, msg: Message) -> Result<()> {
+    if let Err(e) = self.f.write(&msg.clone().into_data()) { println!("{}", e); }
+    match serde_json::from_str::<QuoteWS>(&msg.into_text().unwrap()) {
+      Ok(o) => { Ok(self.tt_sink.send_async(quote_ws_to_quote_m(o))) },
+      Err(e) => { Err(Error::new(ErrorKind::Internal, format!("SFTT on_message: {:?}.", e))) }}}
+
+  fn on_close(&mut self, code: CloseCode, reason: &str) { }
+
+  fn on_error(&mut self, err: Error) {  }}
 
 fn main() {
   let sf = StockFighter::new();
-  let account = ""; // Start up a level instance and add the details here.
-  let venue   = "";
-  let symbol  = "";
-  println!("{:#?}",sf.api_heartbeat());
-  println!("{:#?}",sf.venue_heartbeat(Venue("TESTEX".to_string()))); // Explicit wrapping with Venue
-  println!("{:#?}",sf.stocks_on_venue("TESTEX".to_string().into())); // Wrapping Venue with .into() syntax, use this sparingly.
-  println!("{:#?}",sf.orderbook(Venue("TESTEX".to_string()), Symbol("FOOBAR".to_string())));
-  println!("{:#?}",sf.quote(Venue(venue.to_string()), Symbol(symbol.to_string())));
-  println!("{:#?}",sf.new_order(Account(account.to_string()), Venue(venue.to_string()), Symbol(symbol.to_string()),
-                              2900.into(), 10.into(), Direction::Sell, OrderType::Limit));
-  println!("{:#?}",sf.status_for_all_orders(Venue(venue.to_string()),Account(account.to_string())));
-  let mut one = quotes_ws!(Account(account.to_string()), Venue(venue.to_string())); // Open quotes Web Socket
-  for message in one.incoming_messages() {
-    let message: Message = match message { Ok(message) => message, Err(e) => { println!("Error: {:?}", e); break; }};
-    match message.opcode {
-      Type::Text => { match serde_json::from_str::<QuoteWS>(&bytes_to_string(&*message.payload).unwrap()) {
-        Ok(o) => println!("{:#?}",Ok(o)), // If Quote parses correctly, print it.
-        Err(_) => println!("{:#?}",       // If it doesn't, try parsing it at an ErrMsg.
-                           serde_json::from_str::<ErrMsg>(&bytes_to_string(&*message.payload).unwrap())) }}
-      _ => () }}}
- 
+  let acc   = "";
+  let venue = "";
+  let stock = "";
+
+  let tt_url = format!("wss://api.stockfighter.io/ob/api/ws/{}/venues/{}/tickertape/stocks/{}",acc,venue,stock);
+
+  let (tt_tx, tt_rx) = channel();
+
+  let _ = thread::Builder::new().name("sf_tt".to_owned()).spawn(move || {
+    connect(tt_url, |_| { SFTT { tt_sender: tt_tx.clone(),
+                                 tt_sink: Sink::new(),
+                                 f: OpenOptions::new().write(true).append(true).open("data/orders.txt").unwrap()
+    }}).unwrap(); });
+
+  let tt_stream = match tt_rx.recv() { Ok(SFTTEvent::Connect(stream)) => stream, _ => panic!("tt_sink") };
+
+  let _ = thread::Builder::new().name("trade".to_owned()).spawn(move || {
+    for event in tt_stream.events() {
+      if let Ok(SFTTEvent::Disconnect) = tt_rx.try_recv() { break }
+      /* trade! */ }}).unwrap(); }

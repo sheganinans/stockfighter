@@ -1,6 +1,6 @@
 [package]
 name = "stockfighter"
-version = "0.3.0"
+version = "0.2.0"
 authors = ["Aistis Raulinaitis <sheganinans@gmail.com>"]
 description = "Complete API for StockFighter"
 license = "MIT"
@@ -12,5 +12,4 @@ serde_json = "0.7.0"
 serde_macros = "0.7.2"
 serializable_enum = "0.3.0"
 hyper = "0.8"
-websocket = "0.16.2"
 chrono = "0.2.21"
