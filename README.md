@@ -299,17 +299,6 @@ pub struct Filled(pub usize);
 
 pub struct StandingComplete(pub bool);
 pub struct IncomingComplete(pub bool);
-
-
-// Macros
-
-macro_rules! quotes_ws { ($acc:expr, $venue:expr) => {..} }
-
-macro_rules! quotes_stock_ws { ($acc:expr, $venue:expr, $stock:expr) => {..} }
-
-macro_rules! fills_ws { ($acc:expr, $venue:expr) => {..} }
-
-macro_rules! fills_stock_ws { ($acc:expr, $venue:expr, $stock:expr) => {..} }
 ```
 
 ## Newtypes
