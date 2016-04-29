@@ -84,7 +84,7 @@ fn main() {
       if let Ok(SFTTEvent::Disconnect) = tt_rx.try_recv() { break }
       /* trade! */ }}).unwrap(); }
 ```
-## Functions, types, and macros
+## Functions, types, and interfaces
 
 ```rust
 // Internal Structs and Funcs
