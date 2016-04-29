@@ -23,7 +23,7 @@ fn main() {
 }
 ```
 
-Using the ws and carboxyl library with SF!:
+Fully asynchronous and non-blocking example with WS and carboxyl FRP library!:
 
 ```rust
 #[macro_use] extern crate stockfighter;
@@ -93,7 +93,7 @@ pub struct HyperResult<T>(pub Result<Result<T,hyper::status::StatusCode>,hyper::
 
 impl<T> HyperResult<T> {
 
-  pub fn all_ok(self) -> T {..}}
+  pub fn all_ok(self) -> T {..} }
 
 
 pub struct StockFighter { api_key: String, client: Client }
