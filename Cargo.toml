@@ -1,15 +1,15 @@
 [package]
 name = "stockfighter"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Aistis Raulinaitis <sheganinans@gmail.com>"]
 description = "Complete API for StockFighter"
 license = "MIT"
 repository = "https://github.com/sheganinans/stockfighter"
 
 [dependencies]
-serde = "0.7.0"
-serde_json = "0.7.0"
-serde_macros = "0.7.2"
+serde = "0.7.10"
+serde_json = "0.7.1"
+serde_macros = "0.7.10"
 serializable_enum = "0.3.0"
-hyper = "0.8"
-chrono = "0.2.21"
+hyper = "0.9.8"
+chrono = "0.2.22"

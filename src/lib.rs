@@ -10,9 +10,8 @@ use chrono::{DateTime,UTC};
 use hyper::client::{Client,response};
 use hyper::status::StatusCode;
 use std::io::Read;
-use serde::de::{Deserialize,Deserializer,Visitor,MapVisitor,EnumVisitor,Error};
+use serde::de::{Deserialize,Deserializer,Visitor};
 use serde::ser::{Serialize,Serializer};
-use std::ops::{Add,Div,Mul,Rem,Sub};
 
 header! { (XStarfighterAuthorization, "X-Starfighter-Authorization") => [String] }
 
@@ -121,7 +120,7 @@ impl StockFighter {
         StatusCode::Unauthorized => Ok(StatusForAllOrdersInAStock::R401(parse_sf_json(&mut res))),
         status_code => Err(status_code) }) })}}
 
-pub struct HyperResult<T>(pub Result<Result<T,hyper::status::StatusCode>,hyper::error::Error>);
+#[derive(Debug)] pub struct HyperResult<T>(pub Result<Result<T,hyper::status::StatusCode>,hyper::error::Error>);
 
 impl<T> HyperResult<T> {
 
