@@ -120,7 +120,7 @@ impl StockFighter {
         StatusCode::Unauthorized => Ok(StatusForAllOrdersInAStock::R401(parse_sf_json(&mut res))),
         status_code => Err(status_code) }) })}}
 
-#[derive(Debug)] pub struct HyperResult<T>(pub Result<Result<T,hyper::status::StatusCode>,hyper::error::Error>);
+#[derive(Debug)] pub struct HyperResult<T>(pub Result<Result<T, hyper::status::StatusCode>, hyper::error::Error>);
 
 impl<T> HyperResult<T> {
 
@@ -300,7 +300,7 @@ newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
 newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
          pub struct Account(pub String): Deref, DerefMut, From, Into, Display);
 
-newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]  pub struct DTUTC(pub DateTime<UTC>): Deref, DerefMut, From, Into);
+newtype!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)] pub struct DTUTC(pub DateTime<UTC>):Deref, DerefMut, From, Into);
 
 impl Serialize for DTUTC {
   fn serialize<S: Serializer>(&self, s: &mut S) -> Result<(), S::Error> { s.serialize_unit_struct("DTUTC") }}
@@ -428,11 +428,11 @@ fn quote_to_quote_m(q: Quote) -> QuoteM {
     symbol:      q.symbol,
     venue:       q.venue,
     these_quotes: match q.bid {
-      None => { match q.ask {
-        None => TheseQuotes::Empty,
+      None    => { match q.ask {
+        None    => TheseQuotes::Empty,
         Some(a) => TheseQuotes::ThatAsk(AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}},
       Some(b) => { match q.ask {
-        None => TheseQuotes::ThisBid(BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth }),
+        None    => TheseQuotes::ThisBid(BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth }),
         Some(a) => TheseQuotes::TheseQuotes(
           BidStruct{ bid: b, bid_size: q.bid_size, bid_depth: q.bid_depth },
           AskStruct{ ask: a, ask_size: q.ask_size, ask_depth: q.ask_depth })}}},
